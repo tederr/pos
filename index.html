@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart POS System</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h2, h3 {
+      text-align: center;
+      color: #333;
+    }
+    input, button, select {
+      width: 100%;
+      max-width: 300px;
+      margin: 10px auto;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    #stockMessage, #cartMessage, #loginMessage {
+      text-align: center;
+      color: green;
+      font-weight: bold;
+    }
+    #loginMessage {
+      color: red;
+    }
+    .low-stock {
+      color: red;
+      font-weight: bold;
+    }
+    .hidden-cost {
+      color: transparent;
+      text-shadow: 0 0 8px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="loginSection" class="container">
+    <h2>Login</h2>
+    <input type="text" id="loginUsername" placeholder="Username" required />
+    <input type="password" id="loginPassword" placeholder="Password" required />
+    <button onclick="handleLogin()">Login</button>
+    <p id="loginMessage"></p>
+  </div>
+
+  <div id="posSection" class="container" style="display: none;">
+    <h2>Smart POS System</h2>
+
+    <button onclick="toggleStockForm()">➕ Add to Stock</button>
+    <button onclick="toggleInventory()">📦 View Inventory</button>
+
+    <div id="stockSection" style="display:none;">
+      <h3>Add to Stock</h3>
+      <form id="stockForm">
+        <input type="text" id="stockBarcode" placeholder="Barcode / Product ID" required />
+        <input type="text" id="stockName" placeholder="Product Name" required />
+        <input type="text" id="stockCategory" placeholder="Category (e.g., Electronics)" />
+        <input type="number" id="stockCostPrice" placeholder="Cost Price" required />
+        <input type="number" id="stockSalePrice" placeholder="Sale Price" required />
+        <input type="number" id="stockQty" placeholder="Quantity to Add" required />
+        <button type="submit">Add/Update Stock</button>
+      </form>
+      <div id="stockMessage"></div>
+    </div>
+
+    <div id="inventorySection" style="display:none;">
+      <h3>Inventory</h3>
+      <input type="text" id="searchInput" placeholder="Search by product name or barcode">
+      <table id="inventoryTable">
+        <thead>
+          <tr>
+            <th>Barcode</th><th>Name</th><th>Category</th><th>Cost Price</th><th>Sale Price</th><th>Stock</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h3>Billing</h3>
+    <form id="billingForm">
+      <input type="text" id="billingBarcode" placeholder="Scan Barcode / Enter ID" required />
+      <input type="number" id="billingQty" placeholder="Quantity" value="1" required />
+      <button type="submit">Add to Cart</button>
+    </form>
+    <div id="cartMessage"></div>
+
+    <h3>Cart</h3>
+    <table id="cartTable">
+      <thead>
+        <tr>
+          <th>Product</th><th>Qty</th><th>Price</th><th>Total</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <h3 id="grandTotal">Grand Total: ₹0</h3>
+    <button onclick="checkout()">Checkout</button>
+  </div>
+
+  <script>
+    const defaultUsername = "admin";
+    const defaultPassword = "1234";
+
+    function handleLogin() {
+      const username = document.getElementById("loginUsername").value.trim();
+      const password = document.getElementById("loginPassword").value;
+
+      if (username === defaultUsername && password === defaultPassword) {
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("posSection").style.display = "block";
+      } else {
+        document.getElementById("loginMessage").textContent = "Invalid username or password";
+      }
+    }
+
+    let inventory = JSON.parse(localStorage.getItem('inventory')) || [];
+    let cart = [];
+
+    function updateInventoryTable() {
+      const tbody = document.querySelector('#inventoryTable tbody');
+      const search = document.getElementById('searchInput').value.trim().toLowerCase();
+      tbody.innerHTML = '';
+
+      inventory.filter(p => p.name.toLowerCase().includes(search) || p.barcode.includes(search)).forEach(product => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${product.barcode}</td>
+          <td>${product.name}</td>
+          <td>${product.category || '-'}</td>
+          <td class="hidden-cost" onclick="this.textContent='₹${product.costPrice}'">••••••</td>
+          <td>₹${product.salePrice}</td>
+          <td class="${product.stock <= 5 ? 'low-stock' : ''}">${product.stock}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function toggleStockForm() {
+      const section = document.getElementById('stockSection');
+      section.style.display = section.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function toggleInventory() {
+      const section = document.getElementById('inventorySection');
+      section.style.display = section.style.display === 'none' ? 'block' : 'none';
+    }
+
+    document.getElementById('stockForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const barcode = stockBarcode.value.trim();
+      const name = stockName.value.trim();
+      const category = stockCategory.value.trim();
+      const costPrice = parseFloat(stockCostPrice.value);
+      const salePrice = parseFloat(stockSalePrice.value);
+      const qty = parseInt(stockQty.value);
+
+      let product = inventory.find(p => p.barcode === barcode);
+      let msg;
+
+      if (product) {
+        product.stock += qty;
+        product.name = name;
+        product.costPrice = costPrice;
+        product.salePrice = salePrice;
+        product.category = category;
+        msg = `Stock updated for ${product.name}. New quantity: ${product.stock}`;
+      } else {
+        product = { barcode, name, category, costPrice, salePrice, stock: qty };
+        inventory.push(product);
+        msg = `New product "${name}" added to inventory.`;
+      }
+
+      localStorage.setItem('inventory', JSON.stringify(inventory));
+      stockMessage.textContent = msg;
+      stockForm.reset();
+      updateInventoryTable();
+    });
+
+    document.getElementById('billingForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const barcode = billingBarcode.value.trim();
+      const qty = parseInt(billingQty.value);
+
+      const product = inventory.find(p => p.barcode === barcode);
+      if (!product || product.stock < qty) {
+        cartMessage.textContent = 'Product not found or insufficient stock.';
+        return;
+      }
+
+      product.stock -= qty;
+      const existingItem = cart.find(p => p.barcode === barcode);
+      if (existingItem) {
+        existingItem.qty += qty;
+      } else {
+        cart.push({ barcode, name: product.name, price: product.salePrice, qty });
+      }
+
+      localStorage.setItem('inventory', JSON.stringify(inventory));
+      renderCart();
+      updateInventoryTable();
+      billingForm.reset();
+    });
+
+    function renderCart() {
+      const tbody = document.querySelector('#cartTable tbody');
+      tbody.innerHTML = '';
+      let total = 0;
+
+      cart.forEach(item => {
+        const rowTotal = item.qty * item.price;
+        total += rowTotal;
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${item.name}</td><td>${item.qty}</td><td>₹${item.price}</td><td>₹${rowTotal}</td>`;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById('grandTotal').textContent = `Grand Total: ₹${total}`;
+    }
+
+    function checkout() {
+      if (cart.length === 0) return alert('Cart is empty');
+      alert('Payment Successful. Thank you!');
+      cart = [];
+      renderCart();
+    }
+
+    document.getElementById('searchInput').addEventListener('input', updateInventoryTable);
+
+    updateInventoryTable();
+  </script>
+</body>
+</html>
